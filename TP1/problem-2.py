@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 
+
 def detectar_lineas_verticales(imagen, umbral=int):
     _, img_th = cv2.threshold(imagen, 128, 255, cv2.THRESH_BINARY_INV)
     # Convertimos la imagen binaria a 1 y 0 (Para facilitar la sumas)
@@ -135,7 +136,7 @@ def detectar_respuesta(imagen, rectangulo):
     # return letra_detectada
 
 
-examenes = ['examen_1.png','examen_2.png','examen_3.png','examen_4.png', 'examen_5.png']
+examenes = ['TP1\examen_1.png','TP1\examen_2.png','TP1\examen_3.png','TP1\examen_4.png', 'TP1\examen_5.png']
 for examen in examenes:
     rta_examen = []
     img = cv2.imread(examen, 2)
@@ -150,8 +151,12 @@ for examen in examenes:
         detectar_respuesta(block, linea_pregunta)
     respuestas_correctas = ['C', 'B', 'A', 'D', 'B', 'B', 'A', 'B', 'D', 'D']
     print(rta_examen)
+
+    contador = 0
     for i in range(len(respuestas_correctas)):
         if respuestas_correctas[i] == rta_examen[i]:
-            print('Pregunta ',(i+1), ':OK')
+            print(f'Pregunta {(i+1)}:', ' OK')
+            contador += 1
         else:
-            print('Pregunta ',(i+1), ':MAL')
+            print(f'Pregunta {(i+1)}:', ' MAL')
+    print('Puntaje: ',contador,'/10')
