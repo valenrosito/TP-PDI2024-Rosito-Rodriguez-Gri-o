@@ -160,3 +160,95 @@ for examen in examenes:
         else:
             print(f'Pregunta {(i+1)}:', ' MAL')
     print('Puntaje: ',contador,'/10')
+
+
+
+
+
+
+#Definimos los diferentes campos
+img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    
+    # Umbralizar la imagen
+_, img_th = cv2.threshold(img_gray, 128, 255, cv2.THRESH_BINARY_INV)
+
+    # Usar la función existente para detectar líneas horizontales
+lineas_h = detectar_lineas_horizontales(img_th, 0.5)
+
+
+    # Asumimos que el encabezado ocupa las primeras líneas detectadas
+if len(lineas_h) >= 3:
+        # Extraer las subimágenes de los campos
+        campo_name = img_th[lineas_h[0][0]:lineas_h[0][1], :]
+        campo_date = img_th[lineas_h[1][0]:lineas_h[1][1], :]
+        campo_class = img_th[lineas_h[2][0]:lineas_h[2][1], :]
+
+
+# Mostrar la subimagen del campo deseado
+campo_name = img_th[lineas_h[0][0]:lineas_h[0][0.5], :]
+campo_name.shape       
+cv2.imshow("Campo Name", campo_name)
+cv2.waitKey(0)  # Espera hasta que se presione una tecla
+cv2.destroyAllWindows()  # Cierra la ventana
+
+
+
+
+
+# Obtener las dimensiones de campo_name
+alto, ancho = campo_name.shape[:2]
+
+# Definir las coordenadas para extraer una subimagen
+x_inicio = 80  # Coordenada x de inicio
+y_inicio = 0   # Coordenada y de inicio
+ancho_subimagen = 150  # Ancho de la subimagen
+alto_subimagen = 30     # Alto de la subimagen
+
+
+subimagen = campo_name[y_inicio:y_inicio + alto_subimagen, x_inicio:x_inicio + ancho_subimagen]
+
+# Mostrar la subimagen
+cv2.imshow('Subimagen de campo_name', subimagen)
+cv2.waitKey(0)  # Espera hasta que se presione una tecla
+cv2.destroyAllWindows()  # Cierra todas las ventanas
+
+
+
+
+
+# Obtener las dimensiones de campo_date
+alto, ancho = campo_date.shape[:2]
+
+# Definir las coordenadas para extraer una subimagen
+x_inicio = 280  # Coordenada x de inicio
+y_inicio = 0   # Coordenada y de inicio
+ancho_subimagen = 90  # Ancho de la subimagen
+alto_subimagen = 30     # Alto de la subimagen
+
+subimagen = campo_date[y_inicio:y_inicio + alto_subimagen, x_inicio:x_inicio + ancho_subimagen]
+
+# Mostrar la subimagen
+cv2.imshow('Subimagen de campo_date', subimagen)
+cv2.waitKey(0)  # Espera hasta que se presione una tecla
+cv2.destroyAllWindows()  # Cierra todas las ventanas
+
+
+
+
+
+
+# Obtener las dimensiones de campo_class
+alto, ancho = campo_class.shape[:2]
+
+# Definir las coordenadas para extraer una subimagen
+x_inicio = 360  # Coordenada x de inicio
+y_inicio = 0   # Coordenada y de inicio
+ancho_subimagen = 90  # Ancho de la subimagen
+alto_subimagen = 30     # Alto de la subimagen
+
+subimagen = campo_class[y_inicio:y_inicio + alto_subimagen, x_inicio:x_inicio + ancho_subimagen]
+
+# Mostrar la subimagen
+cv2.imshow('Subimagen de campo_class', subimagen)
+cv2.waitKey(0)  # Espera hasta que se presione una tecla
+cv2.destroyAllWindows()  # Cierra todas las ventanas
