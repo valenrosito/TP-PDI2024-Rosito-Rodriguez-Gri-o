@@ -1,6 +1,12 @@
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
+# imagen = cv2.imread('examen_1.png', cv2.IMREAD_GRAYSCALE) 
+# nombre = imagen[0:30, 60:255]
+# fecha = imagen[0:30, 290:375]
+# clase = imagen[0:30, 420:490] 
+# plt.imshow(clase, cmap='gray')
+# plt.show()
 
 
 def detectar_lineas_verticales(imagen, umbral=int):
@@ -134,9 +140,44 @@ def detectar_respuesta(imagen, rectangulo):
             letra_detectada = "B"  # Tiene dos hijos (dos huecos, como la letra B)
     rta_examen.append(letra_detectada)
     # return letra_detectada
+    
+def detectar_caracteres_encabezado(imagen_encabezado):
+    imagen_encabezado = cv2.adaptiveThreshold(imagen_encabezado, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 11, 2)
+    # Encontrar contornos en la imagen umbralizada
+    contours, hierarchy = cv2.findContours(imagen_encabezado, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    # Dibujar los contornos en una imagen en blanco
+    contour_img = np.zeros_like(imagen_encabezado)
+    cv2.drawContours(contour_img, contours, -1, (255, 255, 255), thickness=cv2.FILLED)
+    # Detecta los componentes conectados
+    num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(imagen_encabezado, 8, cv2.CV_32S)
+    stats = sorted(stats, key=lambda x: x[0])
 
+    # Filtra los componentes cuya área es menor a 50 pixeles
+    stats_filtrado = [s for s in stats if s[-1] > 20]
+    
 
-examenes = ['TP1/examen_1.png','TP1/examen_2.png','TP1/examen_3.png','TP1/examen_4.png', 'TP1/examen_5.png']
+    umbral_distancia = 35
+    espacios = 0
+
+    repetidos = []
+
+    for i in range(len(stats_filtrado)-1):
+        # Obtiene las coordenadas x del componente actual y del siguiente
+        x_actual = stats_filtrado[i][0]
+        x_siguiente = stats_filtrado[i + 1][0]
+        # Calcula la distancia horizontal entre los componentes
+        distancia_horizontal = x_siguiente - x_actual
+
+        # Si la distancia horizontal es mayor que cierto umbral intuimos que hay un espacio entre palabras.
+        if distancia_horizontal >= umbral_distancia:
+            # Incrementa el contador de espacios entre letras
+            espacios += 1
+
+    salida = {"Caracteres": len(stats_filtrado),"Espacios": espacios,"Palabras": espacios + 1}
+    return salida
+
+nombres = []
+examenes = ['examen_1.png','examen_2.png','examen_3.png','examen_4.png', 'examen_5.png']
 for examen in examenes:
     rta_examen = []
     img = cv2.imread(examen, 2)
@@ -145,12 +186,54 @@ for examen in examenes:
     lineas_h = detectar_lineas_horizontales(img, 0.5)
     blocks = division_bloques(lineas_v, lineas_h, img)
     lineas_h = lineas_h[1:]
-    encabezado = lineas_h[0]
+    
+    # Corto cada campo
+    nombre = img[0:30, 50:255]
+    fecha = img[0:30, 290:375]
+    clase = img[0:30, 410:490]
+
+    
+    nombres.append(nombre)
+
+    d_nombre = detectar_caracteres_encabezado(nombre)
+    d_fecha = detectar_caracteres_encabezado(fecha)
+    d_class = detectar_caracteres_encabezado(clase)
+    
+    print(d_nombre,d_fecha,d_class)
+    
+    
+    
+    
+    
+    
+    
+    
+    # Nombre
+    if d_nombre["Caracteres"] > 25 or d_nombre["Caracteres"] == 0 or  d_nombre["Palabras"] < 2:
+        print("Nombre: Mal")
+    else:
+        print("Nombre: Ok")
+    
+    # Fecha
+    if d_fecha["Caracteres"] !=8:
+        print("fecha: Mal")
+    else:
+        print("fecha: Ok")
+    
+    # Class
+    if d_class["Caracteres"] == 2:
+        print("Code: Ok")
+    else:
+        print("Code: Mal")
+    
+    
     for block in blocks:
         linea_pregunta = detectar_linea_pregunta(block)
         detectar_respuesta(block, linea_pregunta)
     respuestas_correctas = ['C', 'B', 'A', 'D', 'B', 'B', 'A', 'B', 'D', 'D']
-    print(rta_examen)
+    nuevo_orden = [0, 1, 4, 2, 6, 5, 3, 8, 9, 7]
+    # Reorganizamos la lista de las respuestas de cada examen
+    respuestas_correctas_ordenadas = [rta_examen[i] for i in nuevo_orden]
 
     contador = 0
     for i in range(len(respuestas_correctas)):
@@ -160,106 +243,3 @@ for examen in examenes:
         else:
             print(f'Pregunta {(i+1)}:', ' MAL')
     print('Puntaje: ',contador,'/10')
-
-
-
-
-
-
-
-
-
-
-
-
-#Punto 2)b)
-#Definimos los diferentes campos
-img = cv2.imread('TP1/examen_5.png')  # Asegúrate de que la ruta sea correcta
-
-img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    
-    # Umbralizar la imagen
-_, img_th = cv2.threshold(img_gray, 128, 255, cv2.THRESH_BINARY_INV)
-
-    # Usar la función existente para detectar líneas horizontales
-lineas_h = detectar_lineas_horizontales(img_th, 0.5)
-
-
-    # Asumimos que el encabezado ocupa las primeras líneas detectadas
-if len(lineas_h) >= 3:
-        # Extraer las subimágenes de los campos
-        campo_encabezado = img_th[lineas_h[0][0]:lineas_h[0][1], :]
-
-
-# Mostrar la subimagen del campo deseado
-campo_encabezado = img_th[lineas_h[0][0]:lineas_h[0][0.5], :]
-campo_encabezado.shape
-cv2.imshow("Campo encabezado", campo_encabezado)
-cv2.waitKey(0)  # Espera hasta que se presione una tecla
-cv2.destroyAllWindows()  # Cierra la ventana
-
-
-
-
-
-# Obtener las dimensiones de campo_name
-alto, ancho = campo_encabezado.shape[:2]
-
-# Definir las coordenadas para extraer una subimagen
-x_inicio = 70  # Coordenada x de inicio
-y_inicio = 0   # Coordenada y de inicio
-ancho_subimagen = 170  # Ancho de la subimagen
-alto_subimagen = 30     # Alto de la subimagen
-
-
-subimagen_name = campo_encabezado[y_inicio:y_inicio + alto_subimagen, x_inicio:x_inicio + ancho_subimagen]
-
-# Mostrar la subimagen
-cv2.imshow('Subimagen de campo_name', subimagen_name)
-cv2.waitKey(0)  # Espera hasta que se presione una tecla
-cv2.destroyAllWindows()  # Cierra todas las ventanas
-
-
-
-
-
-# Obtener las dimensiones de campo_date
-alto, ancho = campo_encabezado.shape[:2]
-
-# Definir las coordenadas para extraer una subimagen
-x_inicio1 = 100  # Coordenada x de inicio
-y_inicio1 = 0   # Coordenada y de inicio
-ancho_subimagen1 = 100  # Ancho de la subimagen
-alto_subimagen1 = 30     # Alto de la subimagen
-
-# Mover la subimagen hacia la derecha
-desplazamiento1 = 180  # Ajusta este valor para mover más o menos a la derecha
-subimagen_date = campo_encabezado[y_inicio1:y_inicio1 + alto_subimagen1, x_inicio1 + desplazamiento1:x_inicio1 + ancho_subimagen1 + desplazamiento1]
-
-# Mostrar la subimagen
-cv2.imshow('Subimagen de campo_date', subimagen_date)
-cv2.waitKey(0)  # Espera hasta que se presione una tecla
-cv2.destroyAllWindows()  # Cierra todas las ventanas
-
-
-
-
-
-
-# Obtener las dimensiones de campo_class
-alto, ancho = campo_encabezado.shape[:2]
-
-# Definir las coordenadas para extraer una subimagen
-x_inicio2 = 100  # Coordenada x de inicio
-y_inicio2 = 0   # Coordenada y de inicio
-ancho_subimagen2 = 100  # Ancho de la subimagen
-alto_subimagen2 = 30     # Alto de la subimagen
-
-# Mover la subimagen hacia la derecha
-desplazamiento2 = 250  # Ajusta este valor para mover más o menos a la derecha
-subimagen_class = campo_encabezado[y_inicio2:y_inicio2 + alto_subimagen2, x_inicio2 + desplazamiento2:x_inicio2 + ancho_subimagen2 + desplazamiento2]
-
-# Mostrar la subimagen
-cv2.imshow('Subimagen de campo_class', subimagen_class)
-cv2.waitKey(0)  # Espera hasta que se presione una tecla
-cv2.destroyAllWindows()  # Cierra todas las ventana
