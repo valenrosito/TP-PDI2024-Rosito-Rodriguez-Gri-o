@@ -136,7 +136,7 @@ def detectar_respuesta(imagen, rectangulo):
     # return letra_detectada
 
 
-examenes = ['TP1\examen_1.png','TP1\examen_2.png','TP1\examen_3.png','TP1\examen_4.png', 'TP1\examen_5.png']
+examenes = ['TP1/examen_1.png','TP1/examen_2.png','TP1/examen_3.png','TP1/examen_4.png', 'TP1/examen_5.png']
 for examen in examenes:
     rta_examen = []
     img = cv2.imread(examen, 2)
@@ -166,7 +166,16 @@ for examen in examenes:
 
 
 
+
+
+
+
+
+
+#Punto 2)b)
 #Definimos los diferentes campos
+img = cv2.imread('TP1/examen_5.png')  # Asegúrate de que la ruta sea correcta
+
 img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     
     # Umbralizar la imagen
@@ -179,15 +188,13 @@ lineas_h = detectar_lineas_horizontales(img_th, 0.5)
     # Asumimos que el encabezado ocupa las primeras líneas detectadas
 if len(lineas_h) >= 3:
         # Extraer las subimágenes de los campos
-        campo_name = img_th[lineas_h[0][0]:lineas_h[0][1], :]
-        campo_date = img_th[lineas_h[1][0]:lineas_h[1][1], :]
-        campo_class = img_th[lineas_h[2][0]:lineas_h[2][1], :]
+        campo_encabezado = img_th[lineas_h[0][0]:lineas_h[0][1], :]
 
 
 # Mostrar la subimagen del campo deseado
-campo_name = img_th[lineas_h[0][0]:lineas_h[0][0.5], :]
-campo_name.shape       
-cv2.imshow("Campo Name", campo_name)
+campo_encabezado = img_th[lineas_h[0][0]:lineas_h[0][0.5], :]
+campo_encabezado.shape
+cv2.imshow("Campo encabezado", campo_encabezado)
 cv2.waitKey(0)  # Espera hasta que se presione una tecla
 cv2.destroyAllWindows()  # Cierra la ventana
 
@@ -196,19 +203,19 @@ cv2.destroyAllWindows()  # Cierra la ventana
 
 
 # Obtener las dimensiones de campo_name
-alto, ancho = campo_name.shape[:2]
+alto, ancho = campo_encabezado.shape[:2]
 
 # Definir las coordenadas para extraer una subimagen
-x_inicio = 80  # Coordenada x de inicio
+x_inicio = 70  # Coordenada x de inicio
 y_inicio = 0   # Coordenada y de inicio
-ancho_subimagen = 150  # Ancho de la subimagen
+ancho_subimagen = 170  # Ancho de la subimagen
 alto_subimagen = 30     # Alto de la subimagen
 
 
-subimagen = campo_name[y_inicio:y_inicio + alto_subimagen, x_inicio:x_inicio + ancho_subimagen]
+subimagen_name = campo_encabezado[y_inicio:y_inicio + alto_subimagen, x_inicio:x_inicio + ancho_subimagen]
 
 # Mostrar la subimagen
-cv2.imshow('Subimagen de campo_name', subimagen)
+cv2.imshow('Subimagen de campo_name', subimagen_name)
 cv2.waitKey(0)  # Espera hasta que se presione una tecla
 cv2.destroyAllWindows()  # Cierra todas las ventanas
 
@@ -217,18 +224,20 @@ cv2.destroyAllWindows()  # Cierra todas las ventanas
 
 
 # Obtener las dimensiones de campo_date
-alto, ancho = campo_date.shape[:2]
+alto, ancho = campo_encabezado.shape[:2]
 
 # Definir las coordenadas para extraer una subimagen
-x_inicio = 280  # Coordenada x de inicio
-y_inicio = 0   # Coordenada y de inicio
-ancho_subimagen = 90  # Ancho de la subimagen
-alto_subimagen = 30     # Alto de la subimagen
+x_inicio1 = 100  # Coordenada x de inicio
+y_inicio1 = 0   # Coordenada y de inicio
+ancho_subimagen1 = 100  # Ancho de la subimagen
+alto_subimagen1 = 30     # Alto de la subimagen
 
-subimagen = campo_date[y_inicio:y_inicio + alto_subimagen, x_inicio:x_inicio + ancho_subimagen]
+# Mover la subimagen hacia la derecha
+desplazamiento1 = 180  # Ajusta este valor para mover más o menos a la derecha
+subimagen_date = campo_encabezado[y_inicio1:y_inicio1 + alto_subimagen1, x_inicio1 + desplazamiento1:x_inicio1 + ancho_subimagen1 + desplazamiento1]
 
 # Mostrar la subimagen
-cv2.imshow('Subimagen de campo_date', subimagen)
+cv2.imshow('Subimagen de campo_date', subimagen_date)
 cv2.waitKey(0)  # Espera hasta que se presione una tecla
 cv2.destroyAllWindows()  # Cierra todas las ventanas
 
@@ -238,17 +247,19 @@ cv2.destroyAllWindows()  # Cierra todas las ventanas
 
 
 # Obtener las dimensiones de campo_class
-alto, ancho = campo_class.shape[:2]
+alto, ancho = campo_encabezado.shape[:2]
 
 # Definir las coordenadas para extraer una subimagen
-x_inicio = 360  # Coordenada x de inicio
-y_inicio = 0   # Coordenada y de inicio
-ancho_subimagen = 90  # Ancho de la subimagen
-alto_subimagen = 30     # Alto de la subimagen
+x_inicio2 = 100  # Coordenada x de inicio
+y_inicio2 = 0   # Coordenada y de inicio
+ancho_subimagen2 = 100  # Ancho de la subimagen
+alto_subimagen2 = 30     # Alto de la subimagen
 
-subimagen = campo_class[y_inicio:y_inicio + alto_subimagen, x_inicio:x_inicio + ancho_subimagen]
+# Mover la subimagen hacia la derecha
+desplazamiento2 = 250  # Ajusta este valor para mover más o menos a la derecha
+subimagen_class = campo_encabezado[y_inicio2:y_inicio2 + alto_subimagen2, x_inicio2 + desplazamiento2:x_inicio2 + ancho_subimagen2 + desplazamiento2]
 
 # Mostrar la subimagen
-cv2.imshow('Subimagen de campo_class', subimagen)
+cv2.imshow('Subimagen de campo_class', subimagen_class)
 cv2.waitKey(0)  # Espera hasta que se presione una tecla
-cv2.destroyAllWindows()  # Cierra todas las ventanas
+cv2.destroyAllWindows()  # Cierra todas las ventana
