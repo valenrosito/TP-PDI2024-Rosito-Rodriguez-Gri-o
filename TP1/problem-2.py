@@ -142,39 +142,47 @@ def detectar_respuesta(imagen, rectangulo):
     # return letra_detectada
     
 def detectar_caracteres_encabezado(imagen_encabezado):
+    # Binarización de la imagen
     imagen_encabezado = cv2.adaptiveThreshold(imagen_encabezado, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 11, 2)
-    # Encontrar contornos en la imagen umbralizada
-    contours, hierarchy = cv2.findContours(imagen_encabezado, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    # Dibujar los contornos en una imagen en blanco
-    contour_img = np.zeros_like(imagen_encabezado)
-    cv2.drawContours(contour_img, contours, -1, (255, 255, 255), thickness=cv2.FILLED)
-    # Detecta los componentes conectados
-    num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(imagen_encabezado, 8, cv2.CV_32S)
-    stats = sorted(stats, key=lambda x: x[0])
-
-    # Filtra los componentes cuya área es menor a 50 pixeles
-    stats_filtrado = [s for s in stats if s[-1] > 20]
     
+    # Encontrar contornos en la imagen binarizada
+    contours, hierarchy = cv2.findContours(imagen_encabezado, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    
+    # Filtrar contornos por área utilizando cv2.contourArea()
+    umbral_area = 5  # Definir el umbral de área mínimo
+    contornos_filtrados = [cnt for cnt in contours if cv2.contourArea(cnt) > umbral_area]
 
-    umbral_distancia = 35
+    umbral_distancia = 15
     espacios = 0
 
-    repetidos = []
+    # Calcular la distancia horizontal entre los contornos filtrados
+    for i in range(-1, len(contornos_filtrados) - 1):
+        # Calcular los rectángulos delimitadores (bounding boxes) de los contornos
+        x_actual, _, w_actual, _ = cv2.boundingRect(contornos_filtrados[i])
+        x_siguiente, _, w_siguiente, _ = cv2.boundingRect(contornos_filtrados[i + 1])
+        # print(x_actual + w_actual ,x_siguiente)
 
-    for i in range(len(stats_filtrado)-1):
-        # Obtiene las coordenadas x del componente actual y del siguiente
-        x_actual = stats_filtrado[i][0]
-        x_siguiente = stats_filtrado[i + 1][0]
-        # Calcula la distancia horizontal entre los componentes
-        distancia_horizontal = x_siguiente - x_actual
+        # Calcular la distancia horizontal entre los componentes
+        distancia_horizontal = x_actual - x_siguiente
 
-        # Si la distancia horizontal es mayor que cierto umbral intuimos que hay un espacio entre palabras.
+        # Si la distancia horizontal está entre los umbrales, consideramos que hay un espacio entre palabras
         if distancia_horizontal >= umbral_distancia:
-            # Incrementa el contador de espacios entre letras
             espacios += 1
 
-    salida = {"Caracteres": len(stats_filtrado),"Espacios": espacios,"Palabras": espacios + 1}
+    # Dibujar rectángulos alrededor de los contornos filtrados
+    for cnt in contornos_filtrados:
+        x, y, w, h = cv2.boundingRect(cnt)  # Solo desempaquetar 4 valores
+        area = cv2.contourArea(cnt)  # Calcular el área por separado
+        cv2.rectangle(imagen_encabezado, (x, y), (x + w, y + h), (255, 0, 0), 2)
+
+    # Mostrar la imagen con los rectángulos dibujados
+    # plt.imshow(imagen_encabezado, cmap='gray')
+    # plt.show()
+
+    # Devolver el número de caracteres, espacios y palabras detectadas
+    salida = {"Caracteres": len(contornos_filtrados), "Espacios": espacios, "Palabras": espacios + 1}
     return salida
+
 
 nombres = []
 examenes = ['examen_1.png','examen_2.png','examen_3.png','examen_4.png', 'examen_5.png']
@@ -188,9 +196,9 @@ for examen in examenes:
     lineas_h = lineas_h[1:]
     
     # Corto cada campo
-    nombre = img[0:30, 50:255]
-    fecha = img[0:30, 290:375]
-    clase = img[0:30, 410:490]
+    nombre = img[0:30, 60:255]
+    fecha = img[0:30, 300:370]
+    clase = img[0:30, 430:490]
 
     
     nombres.append(nombre)
@@ -198,14 +206,6 @@ for examen in examenes:
     d_nombre = detectar_caracteres_encabezado(nombre)
     d_fecha = detectar_caracteres_encabezado(fecha)
     d_class = detectar_caracteres_encabezado(clase)
-    
-    print(d_nombre,d_fecha,d_class)
-    
-    
-    
-    
-    
-    
     
     
     # Nombre
@@ -221,7 +221,7 @@ for examen in examenes:
         print("fecha: Ok")
     
     # Class
-    if d_class["Caracteres"] == 2:
+    if d_class["Caracteres"] == 1:
         print("Code: Ok")
     else:
         print("Code: Mal")
