@@ -3,7 +3,10 @@ En caso de que no se tengan las librerias necesarias, instalelas con este comand
 pip install opencv-python numpy matplotlib
 
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> 91d9575462680aaffb02721fc6e4af134aa9914f
 En la carpeta TP1 se van a encontrar diferentes archivos
 
 problem-1.py: Script de el problema 1 del trabajo practico
