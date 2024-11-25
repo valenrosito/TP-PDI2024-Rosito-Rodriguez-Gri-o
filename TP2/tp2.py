@@ -16,12 +16,12 @@ def segmentacion_monedas_dados(ruta_imagen):
     _, imagen_binaria = cv2.threshold(image_blureada, 12, 255, cv2.THRESH_BINARY)
 
 
-    matriz = cv2.getStructuringElement(cv2.MORPH_RECT, (40, 40))
-    clausura = cv2.morphologyEx(imagen_binaria, cv2.MORPH_CLOSE, matriz)
-    apertura = cv2.morphologyEx(clausura, cv2.MORPH_OPEN, matriz)
+    matrix = cv2.getStructuringElement(cv2.MORPH_RECT, (40, 40))
+    close = cv2.morphologyEx(imagen_binaria, cv2.MORPH_CLOSE, matrix)
+    open_ = cv2.morphologyEx(close, cv2.MORPH_OPEN, matrix)
 
-    matriz = cv2.getStructuringElement(cv2.MORPH_RECT, (9, 9))
-    erode = cv2.erode(apertura, matriz)
+    matrix = cv2.getStructuringElement(cv2.MORPH_RECT, (9, 9))
+    erode = cv2.erode(open_, matrix)
 
 
     contornos, _ = cv2.findContours(erode, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
@@ -63,14 +63,14 @@ conteo_monedas(segmentacion_monedas_dados("TP2/monedas.jpg")[0])
 def conteo_dados(mascara):
     imagen_nueva = cv2.imread('TP2/monedas.jpg', cv2.IMREAD_GRAYSCALE)
 
-    matriz = cv2.getStructuringElement(cv2.MORPH_RECT, (100, 100))
-    close = cv2.morphologyEx(mascara, cv2.MORPH_CLOSE, matriz)
+    matrix = cv2.getStructuringElement(cv2.MORPH_RECT, (100, 100))
+    close = cv2.morphologyEx(mascara, cv2.MORPH_CLOSE, matrix)
 
-    matriz = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (20, 20))
-    erode = cv2.morphologyEx(close, cv2.MORPH_ERODE, matriz)
+    matrix = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (20, 20))
+    erode = cv2.morphologyEx(close, cv2.MORPH_ERODE, matrix)
 
-    matriz = cv2.getStructuringElement(cv2.MORPH_RECT, (60, 60))
-    open_ = cv2.morphologyEx(erode, cv2.MORPH_OPEN, matriz)
+    matrix = cv2.getStructuringElement(cv2.MORPH_RECT, (60, 60))
+    open_ = cv2.morphologyEx(erode, cv2.MORPH_OPEN, matrix)
 
     dados, _ = cv2.findContours(open_, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
