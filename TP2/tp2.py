@@ -3,6 +3,17 @@ import numpy as np
 import cv2
 
 def segmentacion_monedas_dados(ruta_imagen):
+    """
+    Segmenta monedas y dados en una imagen dada.
+
+    Args:
+        ruta_imagen (str): La ruta del archivo de la imagen a procesar.
+
+    Returns:
+        tuple: Una tupla que contiene:
+            - monedas (list): Una lista de tuplas, cada una con un contorno y el área de una moneda detectada.
+            - mascara (numpy.ndarray): Una imagen binaria con los dados segmentados.
+    """
     # Cargamos la imagen y le aplicamos un filtro de desenfoque para eliminar el ruido
     image = cv2.imread(ruta_imagen)
     image = cv2.blur(image, (7, 7))
@@ -16,12 +27,12 @@ def segmentacion_monedas_dados(ruta_imagen):
     _, imagen_binaria = cv2.threshold(image_blureada, 12, 255, cv2.THRESH_BINARY)
 
 
-    matrix = cv2.getStructuringElement(cv2.MORPH_RECT, (40, 40))
-    close = cv2.morphologyEx(imagen_binaria, cv2.MORPH_CLOSE, matrix)
-    open_ = cv2.morphologyEx(close, cv2.MORPH_OPEN, matrix)
+    s = cv2.getStructuringElement(cv2.MORPH_RECT, (40, 40))
+    close = cv2.morphologyEx(imagen_binaria, cv2.MORPH_CLOSE, s)
+    open_ = cv2.morphologyEx(close, cv2.MORPH_OPEN, s)
 
-    matrix = cv2.getStructuringElement(cv2.MORPH_RECT, (9, 9))
-    erode = cv2.erode(open_, matrix)
+    s = cv2.getStructuringElement(cv2.MORPH_RECT, (9, 9))
+    erode = cv2.erode(open_, s)
 
 
     contornos, _ = cv2.findContours(erode, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
@@ -42,6 +53,17 @@ def segmentacion_monedas_dados(ruta_imagen):
     return monedas, mascara
 
 def conteo_monedas(monedas):
+    """
+    Cuenta la cantidad de monedas de diferentes denominaciones en una lista dada.
+
+    Args:
+        monedas (list): Una lista de tuplas, donde cada tupla contiene dos elementos:
+                        - El primer elemento es un identificador de la moneda (puede ser cualquier tipo de dato).
+                        - El segundo elemento es el área de la moneda (un número entero o flotante).
+
+    Returns:
+        None: La función imprime la cantidad de monedas de 10 centavos, 50 centavos y 1 peso encontradas en la lista.
+    """
     # Ordenamos la lista de monedas en base a su area para facilitar la visualziacion
     sorted_monedas = sorted(monedas , key=lambda x: x[1])
     ten_cents = 0
@@ -58,9 +80,19 @@ def conteo_monedas(monedas):
 
     return print(f"Se encontraron las siguientes cantidades de monedas:\nMonedas 10 centavos: {ten_cents}\nMonedas 50 centavos: {fifty_cents}\nMonedas 1 peso: {one_peso}")
 
-conteo_monedas(segmentacion_monedas_dados("TP2/monedas.jpg")[0])
-
 def conteo_dados(mascara):
+    """
+    Cuenta el número de puntos en los dados en una imagen.
+
+    Esta función procesa una imagen de máscara de entrada para identificar y contar el número de puntos en cada dado presente en la imagen.
+    Realiza varias operaciones morfológicas para limpiar la imagen y aislar los dados, luego extrae cada dado y cuenta el número de puntos en él.
+
+    Args:
+        mascara (numpy.ndarray): La imagen de máscara de entrada donde se detectarán los dados.
+
+    Returns:
+        None: La función imprime el número de puntos en cada dado encontrado en la imagen.
+    """
     imagen_nueva = cv2.imread('TP2/monedas.jpg', cv2.IMREAD_GRAYSCALE)
 
     matrix = cv2.getStructuringElement(cv2.MORPH_RECT, (100, 100))
@@ -93,4 +125,5 @@ def conteo_dados(mascara):
 
         print(f"Dado {(len(dados_recortados)-1)+1} tiene {num_puntos} puntos")
 
+conteo_monedas(segmentacion_monedas_dados("TP2/monedas.jpg")[0])
 conteo_dados((segmentacion_monedas_dados("TP2/monedas.jpg")[1]))
