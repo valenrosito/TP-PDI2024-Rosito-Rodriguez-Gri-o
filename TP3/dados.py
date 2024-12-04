@@ -2,12 +2,9 @@ import os
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
-
-def mostrar_imagen(imagen, titulo):
-    plt.imshow(cv2.cvtColor(imagen, cv2.COLOR_BGR2RGB))
-    plt.title(titulo)
-    plt.axis('off')
-    plt.show()
+import sys
+sys.path.append('TP3')
+from utils import *
 
 def analizar_frames(cap):
     """Analiza los fotogramas del video para detectar quietud en los dados."""
@@ -66,15 +63,17 @@ def detectar_dados(frame):
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     blurred = cv2.GaussianBlur(gray, (5, 5), 0)
     edges = cv2.Canny(blurred, 50, 120)
-    kernel = np.ones((9, 9), np.uint8)
-    dilated = cv2.dilate(edges, kernel, iterations=1)
 
-    contours, _ = cv2.findContours(dilated, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    kernel = np.ones((21, 21), np.uint8)
+    closed = cv2.morphologyEx(edges, cv2.MORPH_CLOSE, kernel)
+
+    contours, _ = cv2.findContours(closed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     bounding_boxes = []
 
     for contour in contours:
         x, y, w, h = cv2.boundingRect(contour)
-        if 70 <= w <= 100 and 60 <= h <= 100:
+        if 70 <= w <= 100 and 70 <= h <= 100:
             bounding_boxes.append((x, y, w, h))
 
     return bounding_boxes
@@ -92,42 +91,25 @@ def mostrar_video_con_bounding_boxes(video_path):
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
+    frame_count = 0
     while cap.isOpened():
         ret, frame = cap.read()
         if not ret:
             break
 
         bounding_boxes = detectar_dados(frame)
-        frame_with_boxes = dibujar_bounding_boxes(frame, bounding_boxes)
-
-        frame_with_boxes = cv2.resize(frame_with_boxes, (int(width / 3), int(height / 3)))
-        cv2.imshow('Dados', frame_with_boxes)
+        if frame_count >= 30:
+            frame_with_boxes = dibujar_bounding_boxes(frame, bounding_boxes)
+            frame_with_boxes = cv2.resize(frame_with_boxes, (int(width / 3), int(height / 3)))
+            cv2.imshow('Dados', frame_with_boxes)
+        else: 
+            cv2.imshow('Dados', frame)
 
         if cv2.waitKey(25) & 0xFF == ord('q'):
             break
+        frame_count += 1  # Incrementar el contador de fotogramas
 
-def procesar_video(video_path):
-    """Procesa el video y llama a la función de análisis de fotogramas."""
-    cap = cv2.VideoCapture(video_path)  # Abre el archivo de video.
-    global width, height
-    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))  # Obtiene el ancho del video.
-    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))  # Obtiene la altura del video.
+# os.makedirs("TP3/frames", exist_ok=True)
+# procesar_video('TP3/videos/tirada_1.mp4')  
 
-    quiet_frame_number = analizar_frames(cap)
-    mostrar_imagen(cv2.imread(os.path.join("TP3/frames", f"frame_{quiet_frame_number}.jpg")), 'Fotograma pausa')
-
-    # Imprimir el número del fotograma donde se detectó la quietud
-    if quiet_frame_number != -1:
-        print(f'El dado se detuvo en el fotograma: {quiet_frame_number}')
-        mostrar_imagen(cv2.imread(os.path.join("TP3/frames", f"frame_{quiet_frame_number}.jpg")), 'Fotograma pausa')
-    else:
-        print('No se detectó quietud en los dados.')
-
-    cap.release()  # Libera el objeto 'cap', cerrando el archivo.
-    cv2.destroyAllWindows()  # Cierra todas las ventanas abiertas.
-
-os.makedirs("TP3/frames", exist_ok=True)
-procesar_video('TP3/videos/tirada_1.mp4')  # Procesa el video especificado.
-
-
-mostrar_video_con_bounding_boxes('TP3/videos/tirada_1.mp4')  # Muestra el video con los bounding boxes.
+mostrar_video_con_bounding_boxes('TP3/videos/tirada_4.mp4')  
