@@ -52,18 +52,17 @@ def analizar_frames(cap):
         prev_frame = frame.copy()
         frame_count += 1  # Incrementar el contador de fotogramas
 
- 
+
         if cv2.waitKey(25) & 0xFF == ord('q'):
             break
 
     return quiet_frame_number
 
 def detectar_dados(frame):
-    """Detecta dados en el fotograma y devuelve las bounding boxes."""
+    """Detecta dados en el fotograma y devuelve las bounding boxes y la máscara."""
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     blurred = cv2.GaussianBlur(gray, (5, 5), 0)
     edges = cv2.Canny(blurred, 50, 120)
-
 
     kernel = np.ones((21, 21), np.uint8)
     closed = cv2.morphologyEx(edges, cv2.MORPH_CLOSE, kernel)
@@ -80,12 +79,43 @@ def detectar_dados(frame):
         if 70 <= w <= 100 and 70 <= h <= 100:
             bounding_boxes.append((x, y, w, h))
 
-    return bounding_boxes
+    return bounding_boxes, mascara
 
-def dibujar_bounding_boxes(frame, bounding_boxes):
-    """Dibuja los bounding boxes en el fotograma."""
-    for (x, y, w, h) in bounding_boxes:
+def conteo_dados(mascara):
+    """Cuenta el número de puntos en los dados de una máscara."""
+    matrix = cv2.getStructuringElement(cv2.MORPH_RECT, (100, 100))
+    close = cv2.morphologyEx(mascara, cv2.MORPH_CLOSE, matrix)
+
+    matrix = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (20, 20))
+    erode = cv2.morphologyEx(close, cv2.MORPH_ERODE, matrix)
+
+    matrix = cv2.getStructuringElement(cv2.MORPH_RECT, (60, 60))
+    open_ = cv2.morphologyEx(erode, cv2.MORPH_OPEN, matrix)
+
+    dados, _ = cv2.findContours(open_, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    puntos_por_dado = []
+    for dado in dados:
+        x, y, w, h = cv2.boundingRect(dado)
+        recorte = mascara[y:y+h, x:x+w]
+
+        _, thresh = cv2.threshold(recorte, 145, 255, cv2.THRESH_BINARY)
+
+        contornos, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        puntos = [cnt for cnt in contornos if cv2.contourArea(cnt) > 50]
+
+        puntos_por_dado.append(len(puntos))
+
+    return puntos_por_dado
+
+def dibujar_bounding_boxes(frame, bounding_boxes, puntos_por_dado):
+    """Dibuja bounding boxes y el número de puntos detectados."""
+    for (x, y, w, h), puntos in zip(bounding_boxes, puntos_por_dado):
+        # Dibujar el rectángulo
         cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+        # Agregar texto con la puntuación del dado
+        texto = f"Puntos: {puntos}"
+        cv2.putText(frame, texto, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
     return frame
 
 def mostrar_video_con_bounding_boxes(video_path):
@@ -93,33 +123,33 @@ def mostrar_video_con_bounding_boxes(video_path):
     cap = cv2.VideoCapture(video_path)
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    fps = int(cap.get(cv2.CAP_PROP_FPS)) 
+    fps = int(cap.get(cv2.CAP_PROP_FPS))
 
     frame_count = 0
 
-    out = cv2.VideoWriter('Output.mp4', cv2.VideoWriter_fourcc(*'mp4v'), fps, (width,height))
+    out = cv2.VideoWriter('Output.mp4', cv2.VideoWriter_fourcc(*'mp4v'), fps, (width, height))
 
     while cap.isOpened():
         ret, frame = cap.read()
         if not ret:
             break
 
-        bounding_boxes = detectar_dados(frame)
+        bounding_boxes, mascara = detectar_dados(frame)
         if frame_count >= 30:
-            frame_with_boxes = dibujar_bounding_boxes(frame, bounding_boxes)
+            puntos_por_dado = conteo_dados(mascara)
+            frame_with_boxes = dibujar_bounding_boxes(frame, bounding_boxes, puntos_por_dado)
             frame_with_boxes = cv2.resize(frame_with_boxes, (int(width / 3), int(height / 3)))
             out.write(frame_with_boxes)
             cv2.imshow('Dados', frame_with_boxes)
-            
-        else: 
+        else:
             cv2.imshow('Dados', frame)
-            
+
         if cv2.waitKey(25) & 0xFF == ord('q'):
             break
         frame_count += 1  # Incrementar el contador de fotogramas
 
 # os.makedirs("TP3/frames", exist_ok=True)
 os.makedirs("TP3/videos_outpu", exist_ok=True)
-# procesar_video('TP3/videos/tirada_1.mp4')  
+# procesar_video('TP3/videos/tirada_1.mp4')
 
-mostrar_video_con_bounding_boxes('TP3/videos/tirada_2.mp4')  
+mostrar_video_con_bounding_boxes('TP3/videos/tirada_2.mp4')
