@@ -58,28 +58,54 @@ def analizar_frames(cap):
 
     return quiet_frame_number
 
+
+import cv2
+import numpy as np
+
 def detectar_dados(frame):
     """Detecta dados en el fotograma y devuelve las bounding boxes y la máscara."""
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    
+    # Usar un desenfoque más ligero
     blurred = cv2.GaussianBlur(gray, (5, 5), 0)
-    edges = cv2.Canny(blurred, 50, 120)
+    
+    # Ajustar los umbrales de Canny para mejorar la detección de bordes
+    edges = cv2.Canny(blurred, 30, 120)
 
-    kernel = np.ones((21, 21), np.uint8)
+    # Usar un kernel más pequeño para mejorar la operación morfológica
+    kernel = np.ones((5, 5), np.uint8)
+    
+    # Operación morfológica de cierre
     closed = cv2.morphologyEx(edges, cv2.MORPH_CLOSE, kernel)
 
+    # Dilatación: agranda las áreas blancas (mejora la visibilidad de los b ordes)
+    # dilated = cv2.dilate(closed, kernel, iterations=1)
+
+    # # Erosión: reduce el tamaño de las áreas blancas para eliminar ruidos
+    # eroded = cv2.erode(dilated, kernel, iterations=1)
+
+    # Encontrar contornos
     contours, _ = cv2.findContours(closed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    
+    # Crear una máscara de los contornos
     mascara = np.zeros_like(gray)
     cv2.drawContours(mascara, contours, -1, 255, -1)
 
+    # Obtener las propiedades de los componentes conectados
     num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(mascara, connectivity=8)
+    
     bounding_boxes = []
 
     for i in range(1, num_labels):  # Empezar desde 1 para ignorar el fondo
         x, y, w, h, area = stats[i]
-        if 70 <= w <= 100 and 70 <= h <= 100:
+
+        # Ajustar las condiciones para detectar las cajas de los dados con más precisión
+        if 70 <= w <= 100 and 70 <= h <= 100:  # Ajusta estos valores según las características de tus dados
             bounding_boxes.append((x, y, w, h))
 
     return bounding_boxes, mascara
+
+
 
 def conteo_dados(mascara):
     """Cuenta el número de puntos en los dados de una máscara."""
@@ -152,4 +178,4 @@ def mostrar_video_con_bounding_boxes(video_path):
 os.makedirs("TP3/videos_outpu", exist_ok=True)
 # procesar_video('TP3/videos/tirada_1.mp4')
 
-mostrar_video_con_bounding_boxes('TP3/videos/tirada_2.mp4')
+mostrar_video_con_bounding_boxes('TP3/videos/tirada_1.mp4')
