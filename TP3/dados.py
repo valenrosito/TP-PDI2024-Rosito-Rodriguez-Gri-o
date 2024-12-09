@@ -59,6 +59,9 @@ def analizar_frames(cap):
     return quiet_frame_number
 
 
+import cv2
+import numpy as np
+
 def detectar_dados_con_centroides_y_puntos(frame):
     """Detecta dados en el fotograma, devuelve bounding boxes, máscara, centroides y puntos."""
     frame = frame[:-600, :]  # Recortar la parte inferior del frame
@@ -88,8 +91,18 @@ def detectar_dados_con_centroides_y_puntos(frame):
         x, y, w, h, area = stats[i]
         cx, cy = centroids[i]
 
-        # Filtrar por tamaño del bounding box
-        if 40 < h < 160 and 40 < w < 160:  # Ajusta estos valores según las dimensiones de los dados
+        # Calcular el perímetro
+        contorno = labels == i
+        perimeter = cv2.arcLength(cv2.findContours(contorno.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0][0], True)
+
+        # Calcular el factor de forma
+        if perimeter > 0:  # Evitar división por cero
+            fp = area / (perimeter ** 2)
+        else:
+            fp = 0
+
+        # Filtrar por tamaño del bounding box y factor de forma
+        if 40 < h < 160 and 40 < w < 160 and fp < 0.1:  # Ajusta el valor de fp según sea necesario
             dados.append((x, y, w, h))
             centroides.append((int(cx), int(cy)))  # Convertir centroides a enteros
 
@@ -100,7 +113,7 @@ def detectar_dados_con_centroides_y_puntos(frame):
             
             # Detectar círculos con Hough Transform
             circles = cv2.HoughCircles(
-                gray_dado, cv2.HOUGH_GRADIENT, 1, 20, param1=50, param2=30, minRadius=5, maxRadius=20
+                gray_dado, cv2.HOUGH_GRADIENT, 1, 13, param1=30, param2=15, minRadius=5, maxRadius=15
             )
 
             if circles is not None:
@@ -171,4 +184,4 @@ def mostrar_video_con_centroides_y_puntos(video_path):
 
 
 # Ejecutar el procesamiento de video con detección de puntos
-mostrar_video_con_centroides_y_puntos('TP3/videos/tirada_4.mp4')
+mostrar_video_con_centroides_y_puntos('TP3/videos/tirada_2.mp4')
