@@ -59,123 +59,90 @@ def analizar_frames(cap):
     return quiet_frame_number
 
 
-import cv2
-import numpy as np
 
-def detectar_dados(frame):
-    """Detecta dados en el fotograma y devuelve las bounding boxes y la máscara."""
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    
-    # Usar un desenfoque más ligero
-    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
-    
-    # Ajustar los umbrales de Canny para mejorar la detección de bordes
-    edges = cv2.Canny(blurred, 30, 120)
+def detectar_dados_con_centroides(frame):
+    """Detecta dados en el fotograma, devuelve bounding boxes, máscara y centroides."""
+    frame = frame[:-600, :]  # Recortar la parte inferior del frame
 
-    # Usar un kernel más pequeño para mejorar la operación morfológica
-    kernel = np.ones((5, 5), np.uint8)
-    
-    # Operación morfológica de cierre
-    closed = cv2.morphologyEx(edges, cv2.MORPH_CLOSE, kernel)
+    image = cv2.blur(frame, (7, 7))
 
-    # Dilatación: agranda las áreas blancas (mejora la visibilidad de los b ordes)
-    # dilated = cv2.dilate(closed, kernel, iterations=1)
+    # Convertimos la imagen a HLS y aplicamos un desenfoque en el canal de luminancia
+    hls = cv2.cvtColor(image, cv2.COLOR_BGR2HLS)
+    h, l, s = cv2.split(hls)
+    image_blureada = cv2.blur(h, (3, 3))
 
-    # # Erosión: reduce el tamaño de las áreas blancas para eliminar ruidos
-    # eroded = cv2.erode(dilated, kernel, iterations=1)
+    # Umbral binario para obtener una máscara inicial
+    _, imagen_binaria = cv2.threshold(image_blureada, 12, 255, cv2.THRESH_BINARY_INV)
 
-    # Encontrar contornos
-    contours, _ = cv2.findContours(closed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    
-    # Crear una máscara de los contornos
-    mascara = np.zeros_like(gray)
-    cv2.drawContours(mascara, contours, -1, 255, -1)
+    # Operación morfológica para limpiar la máscara
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (9, 9))
+    open_ = cv2.morphologyEx(imagen_binaria, cv2.MORPH_DILATE, kernel)
 
-    # Obtener las propiedades de los componentes conectados
-    num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(mascara, connectivity=8)
-    
-    bounding_boxes = []
+    # Detectar componentes conectados
+    num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(open_, connectivity=4)
 
-    for i in range(1, num_labels):  # Empezar desde 1 para ignorar el fondo
+    dados = []  # Lista de bounding boxes
+    centroides = []  # Lista de centroides
+
+    for i in range(1, num_labels):  # Ignorar el fondo (label 0)
         x, y, w, h, area = stats[i]
+        cx, cy = centroids[i]
 
-        # Ajustar las condiciones para detectar las cajas de los dados con más precisión
-        if 70 <= w <= 100 and 70 <= h <= 100:  # Ajusta estos valores según las características de tus dados
-            bounding_boxes.append((x, y, w, h))
+        # Filtrar por tamaño del bounding box
+        if 40 < h < 160 and 40 < w < 160:  # Ajusta estos valores según las dimensiones de los dados
+            dados.append((x, y, w, h))
+            centroides.append((int(cx), int(cy)))  # Convertir centroides a enteros
 
-    return bounding_boxes, mascara
+    return dados, open_, centroides
 
 
-
-def conteo_dados(mascara):
-    """Cuenta el número de puntos en los dados de una máscara."""
-    matrix = cv2.getStructuringElement(cv2.MORPH_RECT, (100, 100))
-    close = cv2.morphologyEx(mascara, cv2.MORPH_CLOSE, matrix)
-
-    matrix = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (20, 20))
-    erode = cv2.morphologyEx(close, cv2.MORPH_ERODE, matrix)
-
-    matrix = cv2.getStructuringElement(cv2.MORPH_RECT, (60, 60))
-    open_ = cv2.morphologyEx(erode, cv2.MORPH_OPEN, matrix)
-
-    dados, _ = cv2.findContours(open_, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
-    puntos_por_dado = []
-    for dado in dados:
-        x, y, w, h = cv2.boundingRect(dado)
-        recorte = mascara[y:y+h, x:x+w]
-
-        _, thresh = cv2.threshold(recorte, 145, 255, cv2.THRESH_BINARY)
-
-        contornos, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        puntos = [cnt for cnt in contornos if cv2.contourArea(cnt) > 50]
-
-        puntos_por_dado.append(len(puntos))
-
-    return puntos_por_dado
-
-def dibujar_bounding_boxes(frame, bounding_boxes, puntos_por_dado):
-    """Dibuja bounding boxes y el número de puntos detectados."""
-    for (x, y, w, h), puntos in zip(bounding_boxes, puntos_por_dado):
-        # Dibujar el rectángulo
+def dibujar_bounding_boxes_y_centroides(frame, bounding_boxes, centroides):
+    """Dibuja bounding boxes y centroides en el fotograma."""
+    for (x, y, w, h), (cx, cy) in zip(bounding_boxes, centroides):
+        # Dibujar el rectángulo alrededor del dado
         cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
-        # Agregar texto con la puntuación del dado
-        texto = f"Puntos: {puntos}"
-        cv2.putText(frame, texto, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+        # Dibujar el centroide
+        cv2.circle(frame, (cx, cy), 5, (0, 0, 255), -1)
+        # Mostrar coordenadas del centroide
+        texto = f"({cx}, {cy})"
+        cv2.putText(frame, texto, (cx + 10, cy - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1)
     return frame
 
-def mostrar_video_con_bounding_boxes(video_path):
-    """Procesa el video y muestra los bounding boxes en cada fotograma."""
+
+import cv2
+
+def mostrar_video_con_centroides(video_path):
+    """Procesa el video, detecta componentes conectados y muestra bounding boxes y centroides."""
     cap = cv2.VideoCapture(video_path)
+    
+    # Obtener propiedades del video
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     fps = int(cap.get(cv2.CAP_PROP_FPS))
 
-    frame_count = 0
-
-    out = cv2.VideoWriter('Output.mp4', cv2.VideoWriter_fourcc(*'mp4v'), fps, (width, height))
+    # Crear una ventana que se puede redimensionar
+    cv2.namedWindow('Dados y Centroides', cv2.WINDOW_NORMAL)
 
     while cap.isOpened():
         ret, frame = cap.read()
         if not ret:
             break
 
-        bounding_boxes, mascara = detectar_dados(frame)
-        if frame_count >= 30:
-            puntos_por_dado = conteo_dados(mascara)
-            frame_with_boxes = dibujar_bounding_boxes(frame, bounding_boxes, puntos_por_dado)
-            frame_with_boxes = cv2.resize(frame_with_boxes, (int(width / 3), int(height / 3)))
-            out.write(frame_with_boxes)
-            cv2.imshow('Dados', frame_with_boxes)
-        else:
-            cv2.imshow('Dados', frame)
+        bounding_boxes, mascara, centroides = detectar_dados_con_centroides(frame)
+        frame_with_boxes_and_centroids = dibujar_bounding_boxes_y_centroides(frame, bounding_boxes, centroides)
 
-        if cv2.waitKey(25) & 0xFF == ord('q'):
+        # Redimensionar el fotograma para que se ajuste a la ventana
+        frame_with_boxes_and_centroids = cv2.resize(frame_with_boxes_and_centroids, (int(width / 3), int(height / 3)))
+
+        # Mostrar el resultado
+        cv2.imshow('Dados y Centroides', frame_with_boxes_and_centroids)
+
+        if cv2.waitKey(1000 // fps) & 0xFF == ord('q'):  # Ajustar el tiempo de espera según el FPS
             break
-        frame_count += 1  # Incrementar el contador de fotogramas
 
-# os.makedirs("TP3/frames", exist_ok=True)
-os.makedirs("TP3/videos_outpu", exist_ok=True)
-# procesar_video('TP3/videos/tirada_1.mp4')
+    cap.release()
+    cv2.destroyAllWindows()
 
-mostrar_video_con_bounding_boxes('TP3/videos/tirada_1.mp4')
+
+# Ejecutar el procesamiento de video
+mostrar_video_con_centroides('TP3/videos/tirada_4.mp4')
