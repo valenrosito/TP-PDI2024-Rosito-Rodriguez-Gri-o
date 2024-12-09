@@ -59,9 +59,8 @@ def analizar_frames(cap):
     return quiet_frame_number
 
 
-
-def detectar_dados_con_centroides(frame):
-    """Detecta dados en el fotograma, devuelve bounding boxes, máscara y centroides."""
+def detectar_dados_con_centroides_y_puntos(frame):
+    """Detecta dados en el fotograma, devuelve bounding boxes, máscara, centroides y puntos."""
     frame = frame[:-600, :]  # Recortar la parte inferior del frame
 
     image = cv2.blur(frame, (7, 7))
@@ -83,6 +82,7 @@ def detectar_dados_con_centroides(frame):
 
     dados = []  # Lista de bounding boxes
     centroides = []  # Lista de centroides
+    puntos_por_dado = []  # Lista de puntos detectados en cada dado
 
     for i in range(1, num_labels):  # Ignorar el fondo (label 0)
         x, y, w, h, area = stats[i]
@@ -93,12 +93,27 @@ def detectar_dados_con_centroides(frame):
             dados.append((x, y, w, h))
             centroides.append((int(cx), int(cy)))  # Convertir centroides a enteros
 
-    return dados, open_, centroides
+            # Detectar círculos en el área del dado usando HoughCircles
+            dado_region = frame[y:y+h, x:x+w]
+            gray_dado = cv2.cvtColor(dado_region, cv2.COLOR_BGR2GRAY)
+            gray_dado = cv2.GaussianBlur(gray_dado, (9, 9), 2)
+            
+            # Detectar círculos con Hough Transform
+            circles = cv2.HoughCircles(
+                gray_dado, cv2.HOUGH_GRADIENT, 1, 20, param1=50, param2=30, minRadius=5, maxRadius=20
+            )
 
+            if circles is not None:
+                circles = np.uint16(np.around(circles))
+                puntos_por_dado.append(circles[0, :])  # Guardar los círculos detectados
+            else:
+                puntos_por_dado.append([])  # Si no se detectan círculos
 
-def dibujar_bounding_boxes_y_centroides(frame, bounding_boxes, centroides):
-    """Dibuja bounding boxes y centroides en el fotograma."""
-    for (x, y, w, h), (cx, cy) in zip(bounding_boxes, centroides):
+    return dados, open_, centroides, puntos_por_dado
+
+def dibujar_bounding_boxes_centroides_y_puntos(frame, bounding_boxes, centroides, puntos_por_dado):
+    """Dibuja bounding boxes, centroides, puntos en el fotograma y muestra la puntuación sobre las boxes."""
+    for (x, y, w, h), (cx, cy), puntos in zip(bounding_boxes, centroides, puntos_por_dado):
         # Dibujar el rectángulo alrededor del dado
         cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
         # Dibujar el centroide
@@ -106,13 +121,22 @@ def dibujar_bounding_boxes_y_centroides(frame, bounding_boxes, centroides):
         # Mostrar coordenadas del centroide
         texto = f"({cx}, {cy})"
         cv2.putText(frame, texto, (cx + 10, cy - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1)
+
+        # Contar los puntos (círculos) detectados dentro del dado
+        cantidad_puntos = len(puntos)
+        
+        # Mostrar la puntuación sobre la bounding box
+        cv2.putText(frame, f"Puntuacion: {cantidad_puntos}", (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
+
+        # Dibujar los puntos (círculos) detectados dentro del dado
+        for (x_circ, y_circ, r) in puntos:
+            cv2.circle(frame, (x + x_circ, y + y_circ), r, (255, 0, 0), 2)  # Círculo azul para los puntos
+
     return frame
 
 
-import cv2
-
-def mostrar_video_con_centroides(video_path):
-    """Procesa el video, detecta componentes conectados y muestra bounding boxes y centroides."""
+def mostrar_video_con_centroides_y_puntos(video_path):
+    """Procesa el video, detecta componentes conectados, puntos de los dados y muestra bounding boxes, centroides y puntos."""
     cap = cv2.VideoCapture(video_path)
     
     # Obtener propiedades del video
@@ -121,21 +145,23 @@ def mostrar_video_con_centroides(video_path):
     fps = int(cap.get(cv2.CAP_PROP_FPS))
 
     # Crear una ventana que se puede redimensionar
-    cv2.namedWindow('Dados y Centroides', cv2.WINDOW_NORMAL)
+    cv2.namedWindow('Dados, Centroides y Puntos', cv2.WINDOW_NORMAL)
 
     while cap.isOpened():
         ret, frame = cap.read()
         if not ret:
             break
 
-        bounding_boxes, mascara, centroides = detectar_dados_con_centroides(frame)
-        frame_with_boxes_and_centroids = dibujar_bounding_boxes_y_centroides(frame, bounding_boxes, centroides)
+        bounding_boxes, mascara, centroides, puntos_por_dado = detectar_dados_con_centroides_y_puntos(frame)
+        frame_with_boxes_centroides_y_puntos = dibujar_bounding_boxes_centroides_y_puntos(
+            frame, bounding_boxes, centroides, puntos_por_dado
+        )
 
         # Redimensionar el fotograma para que se ajuste a la ventana
-        frame_with_boxes_and_centroids = cv2.resize(frame_with_boxes_and_centroids, (int(width / 3), int(height / 3)))
+        frame_with_boxes_centroides_y_puntos = cv2.resize(frame_with_boxes_centroides_y_puntos, (int(width / 3), int(height / 3)))
 
         # Mostrar el resultado
-        cv2.imshow('Dados y Centroides', frame_with_boxes_and_centroids)
+        cv2.imshow('Dados, Centroides y Puntos', frame_with_boxes_centroides_y_puntos)
 
         if cv2.waitKey(1000 // fps) & 0xFF == ord('q'):  # Ajustar el tiempo de espera según el FPS
             break
@@ -144,5 +170,5 @@ def mostrar_video_con_centroides(video_path):
     cv2.destroyAllWindows()
 
 
-# Ejecutar el procesamiento de video
-mostrar_video_con_centroides('TP3/videos/tirada_4.mp4')
+# Ejecutar el procesamiento de video con detección de puntos
+mostrar_video_con_centroides_y_puntos('TP3/videos/tirada_4.mp4')
