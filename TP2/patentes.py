@@ -11,95 +11,75 @@ def mostrar_imagen(imagen, titulo):
 
 def procesar_imagen(ruta_imagen):
     """
-    Procesa una imagen para detectar y segmentar una placa de vehículo.
-    Args:
-        ruta_imagen (str): La ruta del archivo de imagen a procesar.
-    Pasos:
-        1. Cargar la imagen desde la ruta especificada.
-        2. Desenfocar la imagen utilizando un filtro Gaussiano.
-        3. Convertir la imagen desenfocada a escala de grises.
-        4. Detectar bordes en la imagen en escala de grises.
-        5. Encontrar contornos en la imagen de bordes.
-        6. Filtrar los contornos para encontrar la placa del vehículo basada en el área del contorno.
-        7. Si se encuentra una placa, segmentar la región de la placa y mostrarla.
-        8. Detectar caracteres en la placa segmentada.
-    Nota:
-        El área mínima del contorno para considerar una placa es de 1500 píxeles, 
-        este valor puede ajustarse según el tamaño esperado de la placa.
+    Procesa una imagen para detectar y segmentar una placa de vehículo utilizando Blackhat Morphological Operation.
     """
-
     # Cargar la imagen
     imagen = cv2.imread(ruta_imagen)
     
-    # Desenfocar la imagen
-    imagen_blur = cv2.GaussianBlur(imagen, (5, 5), 0)
-    
     # Convertir a escala de grises
-    imagen_gray = cv2.cvtColor(imagen_blur, cv2.COLOR_BGR2GRAY)
+    imagen_gray = cv2.cvtColor(imagen, cv2.COLOR_BGR2GRAY)
+    
+    # Aplicar Blackhat para resaltar líneas oscuras sobre fondo claro
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (18, 5))  # Kernel más ancho que alto
+    blackhat = cv2.morphologyEx(imagen_gray, cv2.MORPH_BLACKHAT, kernel)
+    
+    # Desenfocar la imagen para suavizar el ruido
+    blackhat_blur = cv2.GaussianBlur(blackhat, (5, 5), 0)
     
     # Detectar bordes
-    bordes = cv2.Canny(imagen_gray, 50, 250)
+    bordes = cv2.Canny(blackhat_blur, 60, 250)
     
+    # Mostrar la imagen de bordes (opcional)
+    # mostrar_imagen(bordes, "Bordes detectados")
+
     # Encontrar contornos
     contornos, _ = cv2.findContours(bordes, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     
     # Filtrar contornos para encontrar la placa
     for contorno in contornos:
         area = cv2.contourArea(contorno)
-        if area > 1500:  # Ajustar según el tamaño esperado de la placa
+        if area > 800:  # Ajustar según el tamaño esperado de la placa
             x, y, w, h = cv2.boundingRect(contorno)
-            placa_segmentada = imagen[y:y+h, x:x+w]
-            mostrar_imagen(placa_segmentada, "Placa Segmentada")
-            detectar_caracteres(placa_segmentada)
-            break  # Salir después de encontrar la primera placa
+            # Filtrar por relación de aspecto de una patente típica
+            relacion_aspecto = w / h if h != 0 else 0
+            if 2.0 <= relacion_aspecto <= 6.0:  # Relación de aspecto típica de placas
+                placa_segmentada = imagen[y:y+h, x:x+w]
+                mostrar_imagen(placa_segmentada, "Placa Segmentada")
+                detectar_caracteres(placa_segmentada)
+                break  # Salir después de encontrar la primera placa
 
-def detectar_caracteres(placa):
+def detectar_caracteres_conectados(placa):
     """
-    Detecta y segmenta caracteres en una imagen de placa de vehículo.
-    Args:
-        placa (numpy.ndarray): Imagen de la placa en formato BGR.
-    Returns:
-        None: La función no retorna ningún valor. Los caracteres detectados se dibujan directamente sobre la imagen de entrada.
-    El proceso incluye:
-        1. Convertir la imagen a escala de grises.
-        2. Aplicar umbralización con Otsu para binarizar la imagen.
-        3. Encontrar contornos en la imagen binarizada.
-        4. Filtrar contornos por tamaño y relación de aspecto para identificar caracteres.
-        5. Dibujar rectángulos alrededor de los caracteres detectados.
-        6. Agrupar caracteres en grupos de 3 y dibujar rectángulos alrededor de cada grupo.
-        7. Mostrar la imagen resultante con los caracteres recuadrados.
+    Detecta y segmenta caracteres en una imagen de placa utilizando contornos y mejora del preprocesamiento.
+    Dibuja rectángulos alrededor de los caracteres detectados.
     """
-    # Convertir a escala de grises
+    # Convertir la imagen a escala de grises
     placa_gray = cv2.cvtColor(placa, cv2.COLOR_BGR2GRAY)
     
-    # Umbral con Otsu
-    _, imagen_binaria = cv2.threshold(placa_gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+    # Filtrado bilateral para suavizar la imagen y reducir el ruido
+    placa_gray = cv2.bilateralFilter(placa_gray, 15, 75, 75)
     
-    # Encontrar contornos
-    contornos, _ = cv2.findContours(imagen_binaria, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    # Usar Canny para detectar los bordes
+    edges = cv2.Canny(placa_gray, 100, 200)
     
-    caracteres_segmentados = []
-    for contorno in contornos:
-        x, y, w, h = cv2.boundingRect(contorno)
-        relacion_aspecto = h / w if w != 0 else 0
+    # Aplicar dilatación para mejorar los bordes
+    kernel = np.ones((3, 3), np.uint8)
+    dilated_edges = cv2.dilate(edges, kernel, iterations=2)
+    
+    # Encontrar contornos en la imagen dilatada
+    contours, _ = cv2.findContours(dilated_edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    
+    # Dibujar rectángulos alrededor de cada contorno encontrado
+    for contour in contours:
+        # Obtener el rectángulo delimitador de cada contorno
+        x, y, w, h = cv2.boundingRect(contour)
         
-        # Filtrar por tamaño y relación de aspecto
-        if w > 10 and h > 20 and 1.5 <= relacion_aspecto <= 3.0:
-            caracteres_segmentados.append((x, y, w, h))
-            # Dibujar rectángulo alrededor del carácter
-            cv2.rectangle(placa, (x, y), (x + w, y + h), (0, 255, 0), 2)
+        # Filtrar contornos que sean demasiado pequeños (probablemente ruido)
+        if w > 15 and h > 20:  # Ajustar estos valores según el tamaño de los caracteres
+            cv2.rectangle(placa, (x, y), (x + w, y + h), (0, 255, 0), 2)  # Rectángulo verde
 
-    # Agrupar caracteres en grupos de 3
-    for i in range(0, len(caracteres_segmentados), 3):
-        grupo = caracteres_segmentados[i:i + 3]
-        if len(grupo) == 3:
-            # Dibujar rectángulo alrededor del grupo
-            x1, y1, w1, h1 = grupo[0]
-            x2, y2, w2, h2 = grupo[2]
-            cv2.rectangle(placa, (x1, y1), (x2 + w2, y1 + h1), (255, 0, 0), 2)
-
-    mostrar_imagen(placa, "Placa con Caracteres Recuadrados")
-
+    # Mostrar la imagen con los caracteres detectados
+    mostrar_imagen(placa, "Placa con Caracteres Detectados")
 
 def procesar_imagenes_en_directorio(directorio):
     for archivo in os.listdir(directorio):
@@ -108,6 +88,6 @@ def procesar_imagenes_en_directorio(directorio):
             print(f"Procesando {ruta_imagen}...")
             procesar_imagen(ruta_imagen)
 
-
+# Ruta del directorio con las imágenes
 directorio_imagenes = "TP2/imagenes"
 procesar_imagenes_en_directorio(directorio_imagenes)
